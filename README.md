@@ -1,121 +1,102 @@
 # OpenAPI Zod Generator
 
-A TypeScript tool that generates TypeScript types, interfaces, and Zod schemas from OpenAPI (Swagger) JSON documents.
+Generate TypeScript interfaces, type aliases, and Zod schemas directly from an OpenAPI (Swagger) JSON spec — no copy-paste, no drift.
 
-## Features
+## The problem
 
-- **Interfaces**: Generates TypeScript interfaces from OpenAPI object schemas
-- **Types**: Generates type aliases with `Partial<{...}>` for all schemas
-- **Zod Schemas**: Generates Zod schemas with circular reference support
-- **Proper null handling**: Uses `.nullish()` for nullable fields
-- **Integer support**: Uses `z.int()` for integer types
+Most frontend codebases that consume a REST API end up with the same silent issue: types defined manually, schemas written separately, and nothing enforcing that they match the spec. When the API changes, the frontend breaks at runtime — not at the type-checker.
 
-## Installation
+At a previous job, our team had a `/contracts` folder where this drift was constant. Engineers would update the OpenAPI spec, forget to update the Zod schemas, and validation would silently pass stale shapes into production. The fix was always manual and always fragile.
 
-```bash
-npm install
-```
+This tool was built to close that gap.
+
+## What it does
+
+Given an OpenAPI JSON file, it generates three artifacts into a `generated/` folder:
+
+- `interfaces.ts` — TypeScript interfaces for all object schemas
+- `schemas.ts` — Zod schemas with full circular reference support via `z.lazy()`
+- `enums.ts` — TypeScript enums extracted from OpenAPI enum definitions
+- `types.ts` — re-exports from interfaces and schemas as a single entry point
+
+The generated output is production-ready. Tested against the full Stripe OpenAPI spec (one of the most complex public specs available) — works without modification.
 
 ## Usage
 
 ```bash
-npm run generate -- <openapi-json-path>
+npm install
+npm run generate -- <path-to-openapi.json>
+
+# Example
+npm run generate -- stripe-openapi.json
 ```
 
-### Example
+Output:
 
-```bash
-npm run generate -- stripeopenapi.json
+```
+generated/
+  enums.ts
+  interfaces.ts
+  schemas.ts
+  types.ts
 ```
 
-This will create a `generated/` folder with:
+## Example output
 
-- `enums.ts` - Exported TypeScript enums
-- `interfaces.ts` - Exported TypeScript interfaces + type definitions
-- `schemas.ts` - Exported Zod schemas
-- `types.ts` - Re-exports from interfaces and schemas
+**Input (OpenAPI schema fragment):**
+```json
+{
+  "Account": {
+    "type": "object",
+    "properties": {
+      "charges_enabled": { "type": "boolean" },
+      "business_type": { 
+        "type": "string",
+        "enum": ["company", "individual", "non_profit"]
+      }
+    }
+  }
+}
+```
 
-## Output Structure
-
-### interfaces.ts
+**Generated interface:**
 ```typescript
 export interface Account {
-  business_profile?: AccountBusinessProfile | null;
-  business_type?: string;
-  capabilities: AccountCapabilities;
   charges_enabled: boolean;
-  // ...
+  business_type?: 'company' | 'individual' | 'non_profit';
 }
-
-export type Account = Partial<{
-  business_profile?: AccountBusinessProfile | null;
-  business_type?: string;
-  capabilities: AccountCapabilities;
-  charges_enabled: boolean;
-  // ...
-}>;
 ```
 
-### schemas.ts
+**Generated Zod schema:**
 ```typescript
-import { z } from 'zod';
-
 export const AccountSchema = z.lazy(() => z.object({
-  business_profile: z.union([z.lazy((): any => AccountBusinessProfileSchema)]).nullish(),
-  business_type: z.enum(['company', 'government_entity', 'individual', 'non_profit']).nullish(),
-  capabilities: z.lazy((): any => AccountCapabilitiesSchema),
   charges_enabled: z.boolean(),
-  // ...
-}));
-
-export const AccountBusinessProfileSchema = z.lazy(() => z.object({
-  // ...
+  business_type: z.enum(['company', 'individual', 'non_profit']).nullish(),
 }));
 ```
 
-### types.ts
-```typescript
-export * from './interfaces';
-export * from './schemas';
-```
+## Features
 
-## Usage in Your Code
+- TypeScript interfaces and type aliases from OpenAPI object schemas
+- Zod schemas with `z.lazy()` for circular references
+- `.nullish()` for nullable fields
+- `z.int()` for integer types
+- `anyOf` / `allOf` / `oneOf` compositions
+- `$ref` resolution with circular support
+- Common formats: `date-time`, `email`, `uuid`, `url`
+- Enum extraction to separate file
 
-```typescript
-import { AccountSchema, type Account } from './generated/schemas';
-import { z } from 'zod';
+## Roadmap
 
-// Validate data against schema
-const validAccount = AccountSchema.parse({
-  id: 'acct_123',
-  charges_enabled: true,
-});
+- [ ] Watch mode — regenerate on spec file changes
+- [ ] Incremental generation — merge new schemas without overwriting existing files
+- [ ] CLI with config file support (`openapi-zod.config.ts`)
+- [ ] Support for YAML specs
+- [ ] Named output directories
 
-// Infer type from schema
-type InferredAccount = z.infer<typeof AccountSchema>;
+## Why not existing tools?
 
-// Validate and get typed result
-const result = AccountSchema.safeParse(someData);
-if (result.success) {
-  const account: Account = result.data;
-}
-```
-
-## Running Again (Updates)
-
-Currently, running the generator will overwrite all files. To add new schemas incrementally, modify the `src/index.ts` to read existing files and merge new schemas.
-
-## Supported OpenAPI Features
-
-- Object schemas with properties
-- Enum values
-- Array types
-- Nullable fields (converted to `.nullish()`)
-- anyOf / allOf / oneOf compositions
-- $ref references with circular support
-- Common formats (date-time, email, uuid, url, etc.)
-- String, number, boolean, integer primitives
-- `z.lazy()` for circular references
+Tools like `openapi-typescript` or `zod-openapi` are excellent for greenfield setups. This was built for a specific constraint: a legacy codebase with an existing OpenAPI spec, where we needed generated artifacts that could be dropped in and adopted incrementally by different teams — without changing the API layer or introducing a new build step dependency.
 
 ## License
 
