@@ -1,0 +1,9 @@
+node_modules/
+dist/
+generated/
+*.log
+.DS_Store
+.env
+.env.local
+*.openapi.json
+stripeopenapi.json

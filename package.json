@@ -1,0 +1,29 @@
+{
+  "name": "openapi-zod-generator",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "generate": "ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MathiTz/openapi-zod-generator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MathiTz/openapi-zod-generator/issues"
+  },
+  "homepage": "https://github.com/MathiTz/openapi-zod-generator#readme",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  }
+}
